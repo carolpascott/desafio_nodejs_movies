@@ -1,6 +1,6 @@
 const knex = require("../database/knex");
 const AppError = require("../utils/AppError");
-const { hash } = require("bcryptjs");
+const { hash, compare } = require("bcryptjs");
 
 class UsersController {
     async create(request, response) {
@@ -30,7 +30,61 @@ class UsersController {
         
         return response.status(201).json();        
     }
-    
+
+    async update(request, response) {
+        const { name, email, password, new_password } = request.body;
+        const { id } = request.params;
+
+        const [ user ] = await knex("users")
+            .where({ id })
+
+        try {
+            if(!user) {
+                throw new AppError("Usuário não cadastrado!");                
+            }    
+
+            if(email) {
+                const [ checkEmailInUse ] = await knex("users")
+                    .where({ email })
+                
+                if(checkEmailInUse && checkEmailInUse.id !== user.id) {
+                    throw new AppError("Email já está em uso!");                
+                }
+            }
+
+            const checkPassword = await compare(password, user.password);
+
+            if(!checkPassword) {
+                    throw new AppError("A senha não confere.");
+            }
+
+        }
+
+        catch(error) {
+            return response.status(400).json({ error });
+        }
+
+        user.name = name ?? user.name;
+        user.email = email ?? user.email;
+
+        if(new_password)
+        {
+            user.password = await hash(new_password, 8);
+        } else {
+            user.password = user.password;
+        }
+               
+        await knex("users")
+            .where({ id })
+            .update({
+            name: user.name,
+            email: user.email,
+            password: user.password,
+            updated_at: knex.fn.now()
+        })
+        
+        return response.status(201).json();   
+    }
 }
 
 module.exports = UsersController;
