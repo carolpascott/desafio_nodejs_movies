@@ -52,12 +52,15 @@ class UsersController {
                 }
             }
 
+            if(!password) {
+                throw new AppError("É necessário informar a senha para atualizar quaisquer dados do usuário.");
+            }
+
             const checkPassword = await compare(password, user.password);
 
             if(!checkPassword) {
                     throw new AppError("A senha não confere.");
             }
-
         }
 
         catch(error) {
@@ -84,6 +87,49 @@ class UsersController {
         })
         
         return response.status(201).json();   
+    }
+
+    async delete(request, response) {
+        const { email, password } = request.body;
+        const { id } = request.params;
+
+        try {
+            const [ user ] = await knex("users")
+                .where({ id });
+
+            if(!user) {
+                throw new AppError("Usuário não cadastrado!");                
+            }    
+
+            if(email) {
+                const [ checkEmailInUse ] = await knex("users")
+                    .where({ email });      
+
+                if(!checkEmailInUse || (checkEmailInUse && checkEmailInUse.id !== user.id)) {
+                    throw new AppError("Email incorreto!");                
+                }
+            }
+
+            if(!password) {
+                throw new AppError("Senha incorreta.");
+            }
+
+            const checkPassword = await compare(password, user.password);
+
+            if(!checkPassword) {
+                    throw new AppError("Senha incorreta.");
+            }
+        }
+
+        catch(error) {
+            return response.status(400).json({ error });
+        }
+
+        await knex("users")
+            .where({ id })
+            .delete();
+
+        return response.status(201).json();
     }
 }
 
